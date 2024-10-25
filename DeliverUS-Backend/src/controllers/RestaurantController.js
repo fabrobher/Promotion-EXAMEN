@@ -1,4 +1,4 @@
-import { Restaurant, Product, RestaurantCategory, ProductCategory } from '../models/models.js'
+import { Product, ProductCategory, Restaurant, RestaurantCategory, sequelizeSession } from '../models/models.js'
 
 const index = async function (req, res) {
   try {
@@ -10,7 +10,8 @@ const index = async function (req, res) {
         model: RestaurantCategory,
         as: 'restaurantCategory'
       },
-        order: [[{ model: RestaurantCategory, as: 'restaurantCategory' }, 'name', 'ASC']]
+        order: [['promoted', 'DESC'],
+          [{ model: RestaurantCategory, as: 'restaurantCategory' }, 'name', 'ASC']]
       }
     )
     res.json(restaurants)
@@ -28,7 +29,8 @@ const indexOwner = async function (req, res) {
         include: [{
           model: RestaurantCategory,
           as: 'restaurantCategory'
-        }]
+        }],
+        order: [['promoted', 'DESC']]
       })
     res.json(restaurants)
   } catch (err) {
@@ -44,6 +46,37 @@ const create = async function (req, res) {
     res.json(restaurant)
   } catch (err) {
     res.status(500).send(err)
+  }
+}
+
+const promote = async function (req, res) {
+  const t = await sequelizeSession.transaction()
+  try {
+    const existingPromotedRestaurant = await Restaurant.findOne(
+      { where: { userId: req.user.id, promoted: true } }
+    )
+
+    if (existingPromotedRestaurant) {
+      await Restaurant.update(
+        { promoted: false },
+        { where: { id: existingPromotedRestaurant.id } },
+        { transaction: t })
+    }
+
+    await Restaurant.update(
+      { promoted: true },
+      { where: { id: req.params.restaurantId } },
+      { transaction: t }
+    )
+
+    await t.commit()
+
+    const newRestaurantPromoted = await Restaurant.findByPk(req.params.restaurantId)
+
+    res.json(newRestaurantPromoted)
+  } catch (error) {
+    await t.rollback()
+    res.status(500).send(error)
   }
 }
 
@@ -101,6 +134,7 @@ const RestaurantController = {
   create,
   show,
   update,
-  destroy
+  destroy,
+  promote
 }
 export default RestaurantController

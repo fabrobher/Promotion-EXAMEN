@@ -61,6 +61,11 @@ module.exports = {
         type: Sequelize.DATE,
         defaultValue: new Date()
       },
+      promoted: {
+        allowNull: false,
+        type: Sequelize.BOOLEAN,
+        defaultValue: false
+      },
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE,
